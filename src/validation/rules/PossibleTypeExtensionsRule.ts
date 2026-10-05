@@ -6,7 +6,12 @@ import { suggestionList } from '../../jsutils/suggestionList';
 
 import { GraphQLError } from '../../error/GraphQLError';
 
-import type { DefinitionNode, TypeExtensionNode } from '../../language/ast';
+import type {
+  DefinitionNode,
+  DirectiveDefinitionExtensionNode,
+  DirectiveDefinitionNode,
+  TypeExtensionNode,
+} from '../../language/ast';
 import { Kind } from '../../language/kinds';
 import { isTypeDefinitionNode } from '../../language/predicates';
 import type { ASTVisitor } from '../../language/visitor';
@@ -33,10 +38,14 @@ export function PossibleTypeExtensionsRule(
 ): ASTVisitor {
   const schema = context.getSchema();
   const definedTypes: ObjMap<DefinitionNode> = Object.create(null);
+  const definedDirectives: ObjMap<DirectiveDefinitionNode> =
+    Object.create(null);
 
   for (const def of context.getDocument().definitions) {
     if (isTypeDefinitionNode(def)) {
       definedTypes[def.name.value] = def;
+    } else if (def.kind === Kind.DIRECTIVE_DEFINITION) {
+      definedDirectives[def.name.value] = def;
     }
   }
 
@@ -47,7 +56,38 @@ export function PossibleTypeExtensionsRule(
     UnionTypeExtension: checkExtension,
     EnumTypeExtension: checkExtension,
     InputObjectTypeExtension: checkExtension,
+    DirectiveDefinitionExtension: checkDirectiveExtension,
   };
+
+  function checkDirectiveExtension(
+    node: DirectiveDefinitionExtensionNode,
+  ): void {
+    const directiveName = node.name.value;
+
+    if (
+      definedDirectives[directiveName] ||
+      schema?.getDirective(directiveName)
+    ) {
+      return;
+    }
+
+    const allDirectiveNames = [
+      ...Object.keys(definedDirectives),
+      ...(schema?.getDirectives().map((directive) => directive.name) ?? []),
+    ];
+
+    const suggestedDirectives = suggestionList(
+      directiveName,
+      allDirectiveNames,
+    );
+    context.reportError(
+      new GraphQLError(
+        `Cannot extend directive "@${directiveName}" because it is not defined.` +
+          didYouMean(suggestedDirectives),
+        { nodes: node.name },
+      ),
+    );
+  }
 
   function checkExtension(node: TypeExtensionNode): void {
     const typeName = node.name.value;

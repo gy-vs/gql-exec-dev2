@@ -90,6 +90,7 @@ export type {
   UnionTypeExtensionNode,
   EnumTypeExtensionNode,
   InputObjectTypeExtensionNode,
+  DirectiveDefinitionExtensionNode,
 } from './ast';
 
 export {

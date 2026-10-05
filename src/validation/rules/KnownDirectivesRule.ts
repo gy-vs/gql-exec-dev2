@@ -113,6 +113,9 @@ function getDirectiveLocationForASTPath(
     case Kind.INPUT_OBJECT_TYPE_DEFINITION:
     case Kind.INPUT_OBJECT_TYPE_EXTENSION:
       return DirectiveLocation.INPUT_OBJECT;
+    case Kind.DIRECTIVE_DEFINITION:
+    case Kind.DIRECTIVE_DEFINITION_EXTENSION:
+      return DirectiveLocation.DIRECTIVE_DEFINITION;
     case Kind.INPUT_VALUE_DEFINITION: {
       const parentNode = ancestors[ancestors.length - 3];
       invariant('kind' in parentNode);

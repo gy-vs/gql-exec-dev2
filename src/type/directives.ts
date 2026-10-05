@@ -5,7 +5,10 @@ import { isObjectLike } from '../jsutils/isObjectLike';
 import type { Maybe } from '../jsutils/Maybe';
 import { toObjMap } from '../jsutils/toObjMap';
 
-import type { DirectiveDefinitionNode } from '../language/ast';
+import type {
+  DirectiveDefinitionExtensionNode,
+  DirectiveDefinitionNode,
+} from '../language/ast';
 import { DirectiveLocation } from '../language/directiveLocation';
 
 import { assertName } from './assertName';
@@ -61,6 +64,7 @@ export class GraphQLDirective {
   isRepeatable: boolean;
   extensions: Readonly<GraphQLDirectiveExtensions>;
   astNode: Maybe<DirectiveDefinitionNode>;
+  extensionASTNodes: ReadonlyArray<DirectiveDefinitionExtensionNode>;
 
   constructor(config: Readonly<GraphQLDirectiveConfig>) {
     this.name = assertName(config.name);
@@ -69,6 +73,7 @@ export class GraphQLDirective {
     this.isRepeatable = config.isRepeatable ?? false;
     this.extensions = toObjMap(config.extensions);
     this.astNode = config.astNode;
+    this.extensionASTNodes = config.extensionASTNodes ?? [];
 
     devAssert(
       Array.isArray(config.locations),
@@ -97,6 +102,7 @@ export class GraphQLDirective {
       isRepeatable: this.isRepeatable,
       extensions: this.extensions,
       astNode: this.astNode,
+      extensionASTNodes: this.extensionASTNodes,
     };
   }
 
@@ -117,12 +123,14 @@ export interface GraphQLDirectiveConfig {
   isRepeatable?: Maybe<boolean>;
   extensions?: Maybe<Readonly<GraphQLDirectiveExtensions>>;
   astNode?: Maybe<DirectiveDefinitionNode>;
+  extensionASTNodes?: Maybe<ReadonlyArray<DirectiveDefinitionExtensionNode>>;
 }
 
 interface GraphQLDirectiveNormalizedConfig extends GraphQLDirectiveConfig {
   args: GraphQLFieldConfigArgumentMap;
   isRepeatable: boolean;
   extensions: Readonly<GraphQLDirectiveExtensions>;
+  extensionASTNodes: ReadonlyArray<DirectiveDefinitionExtensionNode>;
 }
 
 /**

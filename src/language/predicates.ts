@@ -97,7 +97,11 @@ export function isTypeDefinitionNode(
 export function isTypeSystemExtensionNode(
   node: ASTNode,
 ): node is TypeSystemExtensionNode {
-  return node.kind === Kind.SCHEMA_EXTENSION || isTypeExtensionNode(node);
+  return (
+    node.kind === Kind.SCHEMA_EXTENSION ||
+    isTypeExtensionNode(node) ||
+    node.kind === Kind.DIRECTIVE_DEFINITION_EXTENSION
+  );
 }
 
 export function isTypeExtensionNode(node: ASTNode): node is TypeExtensionNode {

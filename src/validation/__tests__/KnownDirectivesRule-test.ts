@@ -1,10 +1,15 @@
 import { describe, it } from 'mocha';
 
+import { expectJSON } from '../../__testUtils__/expectJSON';
+
+import { parse } from '../../language/parser';
+
 import type { GraphQLSchema } from '../../type/schema';
 
 import { buildSchema } from '../../utilities/buildASTSchema';
 
 import { KnownDirectivesRule } from '../rules/KnownDirectivesRule';
+import { validateSDL } from '../validate';
 
 import {
   expectSDLValidationErrors,
@@ -447,6 +452,66 @@ describe('Validate: Known directives', () => {
           locations: [{ line: 26, column: 25 }],
         },
       ]);
+    });
+
+    describe('experimental directives on directive definitions', () => {
+      function expectExperimentalSDLErrors(
+        sdlStr: string,
+        schema?: GraphQLSchema,
+      ) {
+        const doc = parse(sdlStr, {
+          experimentalDirectivesOnDirectiveDefinitions: true,
+        });
+        return expectJSON(validateSDL(doc, schema, [KnownDirectivesRule]));
+      }
+
+      it('accepts directives declared on DIRECTIVE_DEFINITION', () => {
+        expectExperimentalSDLErrors(`
+          directive @owner(team: String!) on DIRECTIVE_DEFINITION
+
+          directive @cacheControl @owner(team: "infra") on FIELD_DEFINITION
+
+          extend directive @cacheControl @owner(team: "gateway")
+        `).toDeepEqual([]);
+      });
+
+      it('reports unknown directives on directive definitions', () => {
+        expectExperimentalSDLErrors(`
+          directive @cacheControl @unknown on FIELD_DEFINITION
+
+          extend directive @cacheControl @unknownExt
+        `).toDeepEqual([
+          {
+            message: 'Unknown directive "@unknown".',
+            locations: [{ line: 2, column: 35 }],
+          },
+          {
+            message: 'Unknown directive "@unknownExt".',
+            locations: [{ line: 4, column: 42 }],
+          },
+        ]);
+      });
+
+      it('reports directives used on a location they do not allow', () => {
+        expectExperimentalSDLErrors(`
+          directive @onFieldDefinition on FIELD_DEFINITION
+
+          directive @foo @onFieldDefinition on FIELD_DEFINITION
+
+          extend directive @foo @onFieldDefinition
+        `).toDeepEqual([
+          {
+            message:
+              'Directive "@onFieldDefinition" may not be used on DIRECTIVE_DEFINITION.',
+            locations: [{ line: 4, column: 26 }],
+          },
+          {
+            message:
+              'Directive "@onFieldDefinition" may not be used on DIRECTIVE_DEFINITION.',
+            locations: [{ line: 6, column: 33 }],
+          },
+        ]);
+      });
     });
   });
 });

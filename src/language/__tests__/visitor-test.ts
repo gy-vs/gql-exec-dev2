@@ -1361,4 +1361,39 @@ describe('Visitor', () => {
       ]);
     });
   });
+
+  describe('experimental directives on directive definitions', () => {
+    it('visits directive definition extensions and applied directives', () => {
+      const ast = parse(
+        'directive @foo @bar on FIELD_DEFINITION\nextend directive @foo @bar',
+        {
+          experimentalDirectivesOnDirectiveDefinitions: true,
+          noLocation: true,
+        },
+      );
+      const visited: Array<string> = [];
+
+      visit(ast, {
+        DirectiveDefinition: {
+          enter: (node) => {
+            visited.push('enter:' + node.name.value);
+          },
+        },
+        DirectiveDefinitionExtension: {
+          enter: (node) => {
+            visited.push('enter-ext:' + node.name.value);
+          },
+          leave: (node) => {
+            visited.push('leave-ext:' + node.name.value);
+          },
+        },
+      });
+
+      expect(visited).to.deep.equal([
+        'enter:foo',
+        'enter-ext:foo',
+        'leave-ext:foo',
+      ]);
+    });
+  });
 });

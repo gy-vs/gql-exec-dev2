@@ -1,5 +1,7 @@
 import { describe, it } from 'mocha';
 
+import { expectJSON } from '../../__testUtils__/expectJSON';
+
 import { parse } from '../../language/parser';
 
 import type { GraphQLSchema } from '../../type/schema';
@@ -7,6 +9,7 @@ import type { GraphQLSchema } from '../../type/schema';
 import { extendSchema } from '../../utilities/extendSchema';
 
 import { UniqueDirectivesPerLocationRule } from '../rules/UniqueDirectivesPerLocationRule';
+import { validateSDL } from '../validate';
 
 import {
   expectSDLValidationErrors,
@@ -390,5 +393,68 @@ describe('Validate: Directives Are Unique Per Location', () => {
         ],
       },
     ]);
+  });
+
+  describe('experimental directives on directive definitions', () => {
+    function expectExperimentalSDLErrors(
+      sdlStr: string,
+      schema?: GraphQLSchema,
+    ) {
+      const doc = parse(sdlStr, {
+        experimentalDirectivesOnDirectiveDefinitions: true,
+      });
+      return expectJSON(
+        validateSDL(doc, schema, [UniqueDirectivesPerLocationRule]),
+      );
+    }
+
+    it('accepts a single non-repeatable directive on a directive definition', () => {
+      expectExperimentalSDLErrors(`
+        directive @meta on DIRECTIVE_DEFINITION
+        directive @foo @meta on FIELD_DEFINITION
+        extend directive @foo @other
+      `).toDeepEqual([]);
+    });
+
+    it('reports duplicate non-repeatable directives on a directive definition', () => {
+      expectExperimentalSDLErrors(`
+        directive @meta on DIRECTIVE_DEFINITION
+        directive @foo @meta @meta on FIELD_DEFINITION
+      `).toDeepEqual([
+        {
+          message:
+            'The directive "@meta" can only be used once at this location.',
+          locations: [
+            { line: 3, column: 24 },
+            { line: 3, column: 30 },
+          ],
+        },
+      ]);
+    });
+
+    it('reports duplicates spread across definition and extensions', () => {
+      expectExperimentalSDLErrors(`
+        directive @meta on DIRECTIVE_DEFINITION
+        directive @foo @meta on FIELD_DEFINITION
+        extend directive @foo @meta
+      `).toDeepEqual([
+        {
+          message:
+            'The directive "@meta" can only be used once at this location.',
+          locations: [
+            { line: 3, column: 24 },
+            { line: 4, column: 31 },
+          ],
+        },
+      ]);
+    });
+
+    it('allows repeated repeatable directives on a directive definition', () => {
+      expectExperimentalSDLErrors(`
+        directive @meta repeatable on DIRECTIVE_DEFINITION
+        directive @foo @meta @meta on FIELD_DEFINITION
+        extend directive @foo @meta
+      `).toDeepEqual([]);
+    });
   });
 });

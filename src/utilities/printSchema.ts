@@ -270,11 +270,21 @@ function printInputValue(arg: GraphQLInputField): string {
 }
 
 function printDirective(directive: GraphQLDirective): string {
+  // Directives applied to a directive definition may be provided by the
+  // directive definition itself or by `extend directive` definitions.
+  const appliedDirectives = directive.extensionASTNodes.reduce(
+    (nodes, extensionNode) => nodes.concat(extensionNode.directives),
+    directive.astNode?.directives ?? [],
+  );
+
   return (
     printDescription(directive) +
     'directive @' +
     directive.name +
     printArgs(directive.args) +
+    (appliedDirectives.length !== 0
+      ? ' ' + appliedDirectives.map(print).join(' ')
+      : '') +
     (directive.isRepeatable ? ' repeatable' : '') +
     ' on ' +
     directive.locations.join(' | ')

@@ -860,6 +860,9 @@ describe('Type System Printer', () => {
 
         """Location adjacent to an input object field definition."""
         INPUT_FIELD_DEFINITION
+
+        """Location adjacent to a directive definition."""
+        DIRECTIVE_DEFINITION
       }
     `);
   });

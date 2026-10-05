@@ -228,16 +228,29 @@ const printDocASTReducer: ASTReducer<string> = {
   },
 
   DirectiveDefinition: {
-    leave: ({ description, name, arguments: args, repeatable, locations }) =>
+    leave: ({
+      description,
+      name,
+      arguments: args,
+      directives,
+      repeatable,
+      locations,
+    }) =>
       wrap('', description, '\n') +
       'directive @' +
       name +
       (hasMultilineItems(args)
         ? wrap('(\n', indent(join(args, '\n')), '\n)')
         : wrap('(', join(args, ', '), ')')) +
+      wrap(' ', join(directives, ' ')) +
       (repeatable ? ' repeatable' : '') +
       ' on ' +
       join(locations, ' | '),
+  },
+
+  DirectiveDefinitionExtension: {
+    leave: ({ name, directives }) =>
+      join(['extend directive @' + name, join(directives, ' ')], ' '),
   },
 
   SchemaExtension: {

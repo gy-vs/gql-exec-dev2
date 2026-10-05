@@ -1,10 +1,15 @@
 import { describe, it } from 'mocha';
 
+import { expectJSON } from '../../__testUtils__/expectJSON';
+
+import { parse } from '../../language/parser';
+
 import type { GraphQLSchema } from '../../type/schema';
 
 import { buildSchema } from '../../utilities/buildASTSchema';
 
 import { PossibleTypeExtensionsRule } from '../rules/PossibleTypeExtensionsRule';
+import { validateSDL } from '../validate';
 
 import { expectSDLValidationErrors } from './harness';
 
@@ -14,6 +19,18 @@ function expectSDLErrors(sdlStr: string, schema?: GraphQLSchema) {
 
 function expectValidSDL(sdlStr: string, schema?: GraphQLSchema) {
   expectSDLErrors(sdlStr, schema).toDeepEqual([]);
+}
+
+function expectExperimentalSDLErrors(
+  sdlStr: string,
+  schema?: GraphQLSchema,
+): any {
+  const doc = parse(sdlStr, {
+    experimentalDirectivesOnDirectiveDefinitions: true,
+  });
+  return expectJSON(
+    validateSDL(doc, schema ?? undefined, [PossibleTypeExtensionsRule]),
+  );
 }
 
 describe('Validate: Possible type extensions', () => {
@@ -267,5 +284,38 @@ describe('Validate: Possible type extensions', () => {
         locations: [{ line: 7, column: 7 }],
       },
     ]);
+  });
+
+  describe('experimental directives on directive definitions', () => {
+    it('extends a directive defined within the document', () => {
+      expectExperimentalSDLErrors(`
+        directive @foo on FIELD_DEFINITION
+        extend directive @foo @bar
+      `).toDeepEqual([
+        // @bar is unknown, but the extension target itself exists.
+      ]);
+    });
+
+    it('extends a directive defined in the schema', () => {
+      const schema = buildSchema(`
+        directive @foo on FIELD_DEFINITION
+      `);
+      expectExperimentalSDLErrors(
+        'extend directive @foo @bar',
+        schema,
+      ).toDeepEqual([]);
+    });
+
+    it('reports an extension of an undefined directive', () => {
+      expectExperimentalSDLErrors(`
+        extend directive @unknown @bar
+      `).toDeepEqual([
+        {
+          message:
+            'Cannot extend directive "@unknown" because it is not defined.',
+          locations: [{ line: 2, column: 27 }],
+        },
+      ]);
+    });
   });
 });

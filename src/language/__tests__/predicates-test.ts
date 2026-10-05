@@ -44,6 +44,7 @@ describe('AST node predicates', () => {
       'UnionTypeExtension',
       'EnumTypeExtension',
       'InputObjectTypeExtension',
+      'DirectiveDefinitionExtension',
     ]);
   });
 
@@ -128,6 +129,7 @@ describe('AST node predicates', () => {
       'UnionTypeExtension',
       'EnumTypeExtension',
       'InputObjectTypeExtension',
+      'DirectiveDefinitionExtension',
     ]);
   });
 

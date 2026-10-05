@@ -174,4 +174,22 @@ describe('Printer: SDL document', () => {
       }
     `);
   });
+
+  describe('experimental directives on directive definitions', () => {
+    const parseExperimental = (source: string) =>
+      parse(source, {
+        experimentalDirectivesOnDirectiveDefinitions: true,
+      });
+
+    it('prints directives applied to directive definitions', () => {
+      const source =
+        'directive @foo(x: Int) @bar repeatable on FIELD_DEFINITION';
+      expect(print(parseExperimental(source))).to.equal(source);
+    });
+
+    it('prints directive extensions', () => {
+      const source = 'extend directive @foo @bar';
+      expect(print(parseExperimental(source))).to.equal(source);
+    });
+  });
 });

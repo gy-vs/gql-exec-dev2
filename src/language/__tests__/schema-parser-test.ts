@@ -1100,6 +1100,62 @@ input Hello {
     });
   });
 
+  describe('experimental directives on directive definitions', () => {
+    const parseExperimental = (source: string) =>
+      parse(source, {
+        experimentalDirectivesOnDirectiveDefinitions: true,
+      });
+
+    it('does not parse directives on directive definitions by default', () => {
+      expectSyntaxError(
+        'directive @foo @bar on FIELD_DEFINITION',
+      ).to.deep.equal({
+        message: 'Syntax Error: Expected "on", found "@".',
+        locations: [{ line: 1, column: 16 }],
+      });
+    });
+
+    it('does not parse directive extensions by default', () => {
+      expectSyntaxError('extend directive @foo @bar').to.deep.equal({
+        message: 'Syntax Error: Unexpected Name "directive".',
+        locations: [{ line: 1, column: 8 }],
+      });
+    });
+
+    it('parses directives applied to a directive definition', () => {
+      const result = parseExperimental(
+        'directive @foo(x: Int) @bar repeatable on FIELD_DEFINITION',
+      );
+
+      expect(result)
+        .to.have.nested.property('definitions[0].kind')
+        .that.equals('DirectiveDefinition');
+      const node = result.definitions[0] as any;
+      expect(node.directives).to.have.lengthOf(1);
+      expect(node.directives[0]).to.have.nested.property('name.value', 'bar');
+      expect(node.repeatable).to.equal(true);
+    });
+
+    it('parses a directive extension', () => {
+      const result = parseExperimental('extend directive @foo @bar');
+
+      const node = result.definitions[0] as any;
+      expect(node.kind).to.equal('DirectiveDefinitionExtension');
+      expect(node.name.value).to.equal('foo');
+      expect(node.directives).to.have.lengthOf(1);
+      expect(node.directives[0]).to.have.nested.property('name.value', 'bar');
+    });
+
+    it('requires at least one directive in a directive extension', () => {
+      expectToThrowJSON(() =>
+        parseExperimental('extend directive @foo'),
+      ).to.deep.equal({
+        message: 'Syntax Error: Unexpected <EOF>.',
+        locations: [{ line: 1, column: 22 }],
+      });
+    });
+  });
+
   it('parses kitchen sink schema', () => {
     expect(() => parse(kitchenSinkSDL)).to.not.throw();
   });

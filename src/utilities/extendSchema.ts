@@ -6,6 +6,7 @@ import { mapValue } from '../jsutils/mapValue';
 import type { Maybe } from '../jsutils/Maybe';
 
 import type {
+  DirectiveDefinitionExtensionNode,
   DirectiveDefinitionNode,
   DocumentNode,
   EnumTypeDefinitionNode,
@@ -141,6 +142,9 @@ export function extendSchemaImpl(
   // New directives and types are separate because a directives and types can
   // have the same name. For example, a type named "skip".
   const directiveDefs: Array<DirectiveDefinitionNode> = [];
+  const directiveExtensionsMap: {
+    [key: string]: Array<DirectiveDefinitionExtensionNode>;
+  } = Object.create(null);
 
   let schemaDef: Maybe<SchemaDefinitionNode>;
   // Schema extensions are collected which may add additional operation types.
@@ -161,6 +165,14 @@ export function extendSchemaImpl(
         : [def];
     } else if (def.kind === Kind.DIRECTIVE_DEFINITION) {
       directiveDefs.push(def);
+    } else if (def.kind === Kind.DIRECTIVE_DEFINITION_EXTENSION) {
+      const extendedDirectiveName = def.name.value;
+      const existingDirectiveExtensions =
+        directiveExtensionsMap[extendedDirectiveName];
+      directiveExtensionsMap[extendedDirectiveName] =
+        existingDirectiveExtensions
+          ? existingDirectiveExtensions.concat([def])
+          : [def];
     }
   }
 
@@ -170,6 +182,7 @@ export function extendSchemaImpl(
     Object.keys(typeExtensionsMap).length === 0 &&
     typeDefs.length === 0 &&
     directiveDefs.length === 0 &&
+    Object.keys(directiveExtensionsMap).length === 0 &&
     schemaExtensions.length === 0 &&
     schemaDef == null
   ) {
@@ -240,6 +253,9 @@ export function extendSchemaImpl(
     return new GraphQLDirective({
       ...config,
       args: mapValue(config.args, extendArg),
+      extensionASTNodes: config.extensionASTNodes.concat(
+        directiveExtensionsMap[directive.name] ?? [],
+      ),
     });
   }
 
@@ -443,6 +459,7 @@ export function extendSchemaImpl(
       isRepeatable: node.repeatable,
       args: buildArgumentMap(node.arguments),
       astNode: node,
+      extensionASTNodes: directiveExtensionsMap[node.name.value] ?? [],
     });
   }
 

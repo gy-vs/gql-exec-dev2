@@ -903,6 +903,11 @@ describe('Introspection', () => {
                   isDeprecated: false,
                   deprecationReason: null,
                 },
+                {
+                  name: 'DIRECTIVE_DEFINITION',
+                  isDeprecated: false,
+                  deprecationReason: null,
+                },
               ],
               possibleTypes: null,
             },
