@@ -270,11 +270,26 @@ function printInputValue(arg: GraphQLInputField): string {
 }
 
 function printDirective(directive: GraphQLDirective): string {
+  const directiveDefinitions = [
+    printDirectiveDefinition(directive),
+    ...directive.extensionASTNodes.map((extensionNode) => print(extensionNode)),
+  ];
+
+  return directiveDefinitions.join('\n\n');
+}
+
+function printDirectiveDefinition(directive: GraphQLDirective): string {
+  const appliedDirectives = directive.astNode?.directives;
+  const directives =
+    appliedDirectives && appliedDirectives.length > 0
+      ? ' ' + appliedDirectives.map((node) => print(node)).join(' ')
+      : '';
   return (
     printDescription(directive) +
     'directive @' +
     directive.name +
     printArgs(directive.args) +
+    directives +
     (directive.isRepeatable ? ' repeatable' : '') +
     ' on ' +
     directive.locations.join(' | ')

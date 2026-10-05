@@ -1361,4 +1361,40 @@ describe('Visitor', () => {
       ]);
     });
   });
+
+  it('Experimental: visits directive extensions', () => {
+    const ast = parse(
+      `
+        directive @foo @bar on FIELD_DEFINITION
+        extend directive @foo @baz
+      `,
+      { experimentalDirectivesOnDirectiveDefinitions: true },
+    );
+
+    const visited: Array<string> = [];
+    visit(ast, {
+      DirectiveDefinition: {
+        enter(node) {
+          visited.push('DirectiveDefinition:' + node.name.value);
+        },
+      },
+      DirectiveExtension: {
+        enter(node) {
+          visited.push('DirectiveExtension:' + node.name.value);
+        },
+      },
+      Directive: {
+        enter(node) {
+          visited.push('Directive:' + node.name.value);
+        },
+      },
+    });
+
+    expect(visited).to.deep.equal([
+      'DirectiveDefinition:foo',
+      'Directive:bar',
+      'DirectiveExtension:foo',
+      'Directive:baz',
+    ]);
+  });
 });

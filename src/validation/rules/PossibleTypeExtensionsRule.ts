@@ -33,10 +33,13 @@ export function PossibleTypeExtensionsRule(
 ): ASTVisitor {
   const schema = context.getSchema();
   const definedTypes: ObjMap<DefinitionNode> = Object.create(null);
+  const definedDirectives: ObjMap<boolean> = Object.create(null);
 
   for (const def of context.getDocument().definitions) {
     if (isTypeDefinitionNode(def)) {
       definedTypes[def.name.value] = def;
+    } else if (def.kind === Kind.DIRECTIVE_DEFINITION) {
+      definedDirectives[def.name.value] = true;
     }
   }
 
@@ -47,6 +50,29 @@ export function PossibleTypeExtensionsRule(
     UnionTypeExtension: checkExtension,
     EnumTypeExtension: checkExtension,
     InputObjectTypeExtension: checkExtension,
+    DirectiveExtension(node) {
+      const directiveName = node.name.value;
+      if (
+        definedDirectives[directiveName] ||
+        schema?.getDirective(directiveName)
+      ) {
+        return;
+      }
+
+      const schemaDirectiveNames =
+        schema?.getDirectives().map((directive) => directive.name) ?? [];
+      const suggestedNames = suggestionList(
+        directiveName,
+        Object.keys(definedDirectives).concat(schemaDirectiveNames),
+      );
+      context.reportError(
+        new GraphQLError(
+          `Cannot extend directive "@${directiveName}" because it is not defined.` +
+            didYouMean(suggestedNames),
+          { nodes: node.name },
+        ),
+      );
+    },
   };
 
   function checkExtension(node: TypeExtensionNode): void {

@@ -1319,4 +1319,85 @@ describe('extendSchema', () => {
       `);
     });
   });
+
+  describe('experimentalDirectivesOnDirectiveDefinitions', () => {
+    it('extends an existing directive with extensionASTNodes', () => {
+      const schema = buildSchema(dedent`
+        directive @owner(team: String!) on DIRECTIVE_DEFINITION
+        directive @foo on FIELD_DEFINITION
+      `);
+      const extendAST = parse('extend directive @foo @owner(team: "gateway")', {
+        experimentalDirectivesOnDirectiveDefinitions: true,
+      });
+
+      const extendedSchema = extendSchema(schema, extendAST);
+
+      const foo = assertDirective(extendedSchema.getDirective('foo'));
+      expect(foo.astNode?.name.value).to.equal('foo');
+      expect(print(foo.extensionASTNodes[0])).to.equal(
+        'extend directive @foo @owner(team: "gateway")',
+      );
+    });
+
+    it('collects several directive extensions', () => {
+      const schema = buildSchema('directive @foo on FIELD_DEFINITION');
+      const extendAST = parse(
+        dedent`
+          directive @a on DIRECTIVE_DEFINITION
+          directive @b on DIRECTIVE_DEFINITION
+
+          extend directive @foo @a
+          extend directive @foo @b
+        `,
+        { experimentalDirectivesOnDirectiveDefinitions: true },
+      );
+
+      const extendedSchema = extendSchema(schema, extendAST);
+
+      const foo = assertDirective(extendedSchema.getDirective('foo'));
+      expect(foo.extensionASTNodes.map((node) => print(node))).to.deep.equal([
+        'extend directive @foo @a',
+        'extend directive @foo @b',
+      ]);
+    });
+
+    it('preserves directive extension AST nodes when re-extending', () => {
+      const schema = buildSchema(dedent`
+        directive @a on DIRECTIVE_DEFINITION
+        directive @foo on FIELD_DEFINITION
+      `);
+      const firstExtension = parse('extend directive @foo @a', {
+        experimentalDirectivesOnDirectiveDefinitions: true,
+      });
+      const extendedOnce = extendSchema(schema, firstExtension);
+
+      const secondExtension = parse(
+        dedent`
+          directive @b on DIRECTIVE_DEFINITION
+          extend directive @foo @b
+        `,
+        { experimentalDirectivesOnDirectiveDefinitions: true },
+      );
+      const extendedTwice = extendSchema(extendedOnce, secondExtension);
+
+      const foo = assertDirective(extendedTwice.getDirective('foo'));
+      expect(foo.extensionASTNodes.map((node) => print(node))).to.deep.equal([
+        'extend directive @foo @a',
+        'extend directive @foo @b',
+      ]);
+    });
+
+    it('reports a directive extension targeting a missing directive', () => {
+      expect(() =>
+        extendSchema(
+          buildSchema('type Query'),
+          parse('extend directive @missing @a', {
+            experimentalDirectivesOnDirectiveDefinitions: true,
+          }),
+        ),
+      ).to.throw(
+        'Cannot extend directive "@missing" because it is not defined.',
+      );
+    });
+  });
 });

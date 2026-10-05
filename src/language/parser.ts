@@ -14,6 +14,7 @@ import type {
   ConstValueNode,
   DefinitionNode,
   DirectiveDefinitionNode,
+  DirectiveExtensionNode,
   DirectiveNode,
   DocumentNode,
   EnumTypeDefinitionNode,
@@ -103,6 +104,20 @@ export interface ParseOptions {
    * ```
    */
   allowLegacyFragmentVariables?: boolean;
+
+  /**
+   * EXPERIMENTAL:
+   *
+   * If enabled, the parser will understand directives applied to directive
+   * definitions as well as directive definition extensions. This syntax is
+   * not part of the GraphQL specification and may change.
+   *
+   * ```graphql
+   * directive @foo @bar on FIELD_DEFINITION
+   * extend directive @foo @baz
+   * ```
+   */
+  experimentalDirectivesOnDirectiveDefinitions?: boolean;
 }
 
 /**
@@ -1117,6 +1132,7 @@ export class Parser {
    *   - UnionTypeExtension
    *   - EnumTypeExtension
    *   - InputObjectTypeDefinition
+   *   - DirectiveDefinitionExtension
    */
   parseTypeSystemExtension(): TypeSystemExtensionNode {
     const keywordToken = this._lexer.lookahead();
@@ -1137,6 +1153,11 @@ export class Parser {
           return this.parseEnumTypeExtension();
         case 'input':
           return this.parseInputObjectTypeExtension();
+        case 'directive':
+          if (this._options.experimentalDirectivesOnDirectiveDefinitions) {
+            return this.parseDirectiveDefinitionExtension();
+          }
+          break;
       }
     }
 
@@ -1320,9 +1341,30 @@ export class Parser {
   }
 
   /**
+   * DirectiveDefinitionExtension :
+   *   - extend directive `@` Name Directives[Const]
+   */
+  parseDirectiveDefinitionExtension(): DirectiveExtensionNode {
+    const start = this._lexer.token;
+    this.expectKeyword('extend');
+    this.expectKeyword('directive');
+    this.expectToken(TokenKind.AT);
+    const name = this.parseName();
+    const directives = this.parseConstDirectives();
+    if (directives.length === 0) {
+      throw this.unexpected();
+    }
+    return this.node<DirectiveExtensionNode>(start, {
+      kind: Kind.DIRECTIVE_EXTENSION,
+      name,
+      directives,
+    });
+  }
+
+  /**
    * ```
    * DirectiveDefinition :
-   *   - Description? directive @ Name ArgumentsDefinition? `repeatable`? on DirectiveLocations
+   *   - Description? directive @ Name ArgumentsDefinition? Directives[Const]? `repeatable`? on DirectiveLocations
    * ```
    */
   parseDirectiveDefinition(): DirectiveDefinitionNode {
@@ -1332,17 +1374,25 @@ export class Parser {
     this.expectToken(TokenKind.AT);
     const name = this.parseName();
     const args = this.parseArgumentDefs();
+    // The "directives" field is only produced when the experimental option
+    // is enabled, keeping the AST identical to previous versions otherwise.
+    const directives =
+      this._options.experimentalDirectivesOnDirectiveDefinitions === true
+        ? this.parseConstDirectives()
+        : undefined;
     const repeatable = this.expectOptionalKeyword('repeatable');
     this.expectKeyword('on');
     const locations = this.parseDirectiveLocations();
-    return this.node<DirectiveDefinitionNode>(start, {
-      kind: Kind.DIRECTIVE_DEFINITION,
+    const node = {
+      kind: Kind.DIRECTIVE_DEFINITION as const,
       description,
       name,
       arguments: args,
+      ...(directives !== undefined ? { directives } : null),
       repeatable,
       locations,
-    });
+    };
+    return this.node<DirectiveDefinitionNode>(start, node);
   }
 
   /**
@@ -1380,6 +1430,7 @@ export class Parser {
    *   `ENUM_VALUE`
    *   `INPUT_OBJECT`
    *   `INPUT_FIELD_DEFINITION`
+   *   `DIRECTIVE_DEFINITION`
    */
   parseDirectiveLocation(): NameNode {
     const start = this._lexer.token;

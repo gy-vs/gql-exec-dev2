@@ -1105,4 +1105,60 @@ describe('Schema Builder', () => {
       'Must provide valid Document AST',
     );
   });
+
+  describe('experimentalDirectivesOnDirectiveDefinitions', () => {
+    it('exposes directives applied to directive definitions on astNode', () => {
+      const schema = buildASTSchema(
+        parse(
+          dedent`
+            directive @onDirective repeatable on DIRECTIVE_DEFINITION
+
+            directive @cacheControl(maxAge: Int) @onDirective repeatable on FIELD_DEFINITION
+          `,
+          { experimentalDirectivesOnDirectiveDefinitions: true },
+        ),
+      );
+
+      const cacheControl = assertDirective(schema.getDirective('cacheControl'));
+      expect(
+        cacheControl.astNode?.directives?.map((node) => node.name.value),
+      ).to.eql(['onDirective']);
+      expect(cacheControl.extensionASTNodes).to.eql([]);
+    });
+
+    it('exposes directive extensions on extensionASTNodes', () => {
+      const schema = buildASTSchema(
+        parse(
+          dedent`
+            directive @onDirective on DIRECTIVE_DEFINITION
+            directive @cacheControl on FIELD_DEFINITION
+
+            extend directive @cacheControl @onDirective
+          `,
+          { experimentalDirectivesOnDirectiveDefinitions: true },
+        ),
+      );
+
+      const cacheControl = assertDirective(schema.getDirective('cacheControl'));
+      expect(
+        cacheControl.extensionASTNodes.map((node) => print(node)),
+      ).to.deep.equal(['extend directive @cacheControl @onDirective']);
+    });
+
+    it('buildSchema forwards the parser option', () => {
+      const schema = buildSchema(
+        dedent`
+          type Query {
+            foo: String
+          }
+
+          directive @owner(team: String!) on DIRECTIVE_DEFINITION
+        `,
+        { experimentalDirectivesOnDirectiveDefinitions: true },
+      );
+
+      const owner = assertDirective(schema.getDirective('owner'));
+      expect(owner.locations).to.include('DIRECTIVE_DEFINITION');
+    });
+  });
 });

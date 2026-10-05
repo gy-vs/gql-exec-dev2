@@ -110,6 +110,24 @@ describe('Printer: Query document', () => {
     `);
   });
 
+  it('Experimental: prints directives on directive definitions', () => {
+    const queryAST = parse(
+      `
+        directive @foo @bar on FIELD_DEFINITION
+        directive @repeatableFoo(x: Int) @bar repeatable on FIELD_DEFINITION
+        extend directive @foo @baz
+      `,
+      { experimentalDirectivesOnDirectiveDefinitions: true },
+    );
+    expect(print(queryAST)).to.equal(dedent`
+      directive @foo @bar on FIELD_DEFINITION
+
+      directive @repeatableFoo(x: Int) @bar repeatable on FIELD_DEFINITION
+
+      extend directive @foo @baz
+    `);
+  });
+
   it('Legacy: prints fragment with variable directives', () => {
     const queryASTWithVariableDirective = parse(
       'fragment Foo($foo: TestType @test) on TestType @testDirective { id }',

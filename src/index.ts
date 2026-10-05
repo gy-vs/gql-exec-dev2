@@ -309,6 +309,7 @@ export type {
   UnionTypeExtensionNode,
   EnumTypeExtensionNode,
   InputObjectTypeExtensionNode,
+  DirectiveExtensionNode,
 } from './language/index';
 
 // Execute GraphQL queries.

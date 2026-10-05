@@ -637,6 +637,40 @@ describe('Type System Printer', () => {
     `);
   });
 
+  it('Experimental: prints directives applied to directive definitions', () => {
+    const sdl = dedent`
+      directive @owner(team: String!) repeatable on DIRECTIVE_DEFINITION
+
+      directive @cacheControl(maxAge: Int) @owner(team: "infra") repeatable on FIELD_DEFINITION
+
+      extend directive @cacheControl @owner(team: "gateway")
+
+      type Query {
+        foo: String
+      }
+    `;
+    const schema = buildSchema(sdl, {
+      experimentalDirectivesOnDirectiveDefinitions: true,
+    });
+
+    const printed = printSchema(schema);
+    expect(printed).to.equal(sdl);
+
+    // Re-reading the printed SDL with the option enabled preserves metadata.
+    const rebuilt = buildSchema(printed, {
+      experimentalDirectivesOnDirectiveDefinitions: true,
+    });
+    expect(printSchema(rebuilt)).to.equal(sdl);
+
+    const cacheControl = rebuilt.getDirective('cacheControl');
+    expect(
+      cacheControl?.astNode?.directives?.map((node) => node.name.value),
+    ).to.eql(['owner']);
+    expect(
+      cacheControl?.extensionASTNodes.map((node) => node.name.value),
+    ).to.eql(['cacheControl']);
+  });
+
   it('Print Introspection Schema', () => {
     const schema = new GraphQLSchema({});
     const output = printIntrospectionSchema(schema);
@@ -860,6 +894,9 @@ describe('Type System Printer', () => {
 
         """Location adjacent to an input object field definition."""
         INPUT_FIELD_DEFINITION
+
+        """Location adjacent to a directive definition."""
+        DIRECTIVE_DEFINITION
       }
     `);
   });

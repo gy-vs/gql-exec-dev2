@@ -1100,6 +1100,99 @@ input Hello {
     });
   });
 
+  describe('experimentalDirectivesOnDirectiveDefinitions', () => {
+    it('parses directives applied to a directive definition', () => {
+      const doc = parse(
+        'directive @foo(x: Int) @bar @baz repeatable on FIELD_DEFINITION',
+        { experimentalDirectivesOnDirectiveDefinitions: true },
+      );
+
+      const def = doc.definitions[0];
+      if (def.kind !== 'DirectiveDefinition') {
+        throw new Error('Expected a DirectiveDefinition node');
+      }
+      expect(def).to.include({
+        kind: 'DirectiveDefinition',
+        repeatable: true,
+      });
+      expect(def.directives?.map((node) => node.name.value)).to.eql([
+        'bar',
+        'baz',
+      ]);
+      expect(def.locations.map((node) => node.value)).to.eql([
+        'FIELD_DEFINITION',
+      ]);
+    });
+
+    it('defaults the directives field to an empty array', () => {
+      const doc = parse('directive @foo on FIELD_DEFINITION', {
+        experimentalDirectivesOnDirectiveDefinitions: true,
+      });
+
+      expect(doc.definitions[0]).to.have.property('directives').that.eql([]);
+    });
+
+    it('parses directive definition extensions', () => {
+      const doc = parse('extend directive @foo @bar @baz', {
+        experimentalDirectivesOnDirectiveDefinitions: true,
+      });
+
+      expect(doc.definitions).to.have.lengthOf(1);
+      const extension = doc.definitions[0];
+      if (extension.kind !== 'DirectiveExtension') {
+        throw new Error('Expected a DirectiveExtension node');
+      }
+      expect(extension).to.include({ kind: 'DirectiveExtension' });
+      expect(extension.name.value).to.equal('foo');
+      expect(extension.directives?.map((node) => node.name.value)).to.eql([
+        'bar',
+        'baz',
+      ]);
+    });
+
+    it('parses DIRECTIVE_DEFINITION as a directive location', () => {
+      expect(() =>
+        parse('directive @foo on DIRECTIVE_DEFINITION', {
+          experimentalDirectivesOnDirectiveDefinitions: true,
+        }),
+      ).to.not.throw();
+    });
+
+    it('requires at least one directive in an extension', () => {
+      expectToThrowJSON(() =>
+        parse('extend directive @foo', {
+          experimentalDirectivesOnDirectiveDefinitions: true,
+        }),
+      ).to.deep.equal({
+        message: 'Syntax Error: Unexpected <EOF>.',
+        locations: [{ line: 1, column: 22 }],
+      });
+    });
+
+    it('does not parse directives on directive definitions when disabled', () => {
+      expectToThrowJSON(() =>
+        parse('directive @foo @bar on FIELD_DEFINITION'),
+      ).to.deep.equal({
+        message: 'Syntax Error: Expected "on", found "@".',
+        locations: [{ line: 1, column: 16 }],
+      });
+    });
+
+    it('does not parse directive extensions when disabled', () => {
+      expectToThrowJSON(() =>
+        parse('extend directive @foo @bar'),
+      ).to.deep.equal({
+        message: 'Syntax Error: Unexpected Name "directive".',
+        locations: [{ line: 1, column: 8 }],
+      });
+    });
+
+    it('does not produce a directives field when disabled', () => {
+      const doc = parse('directive @foo on FIELD_DEFINITION');
+      expect(doc.definitions[0]).to.not.have.property('directives');
+    });
+  });
+
   it('parses kitchen sink schema', () => {
     expect(() => parse(kitchenSinkSDL)).to.not.throw();
   });

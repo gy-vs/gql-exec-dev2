@@ -38,6 +38,7 @@ describe('AST node predicates', () => {
       'InputObjectTypeDefinition',
       'DirectiveDefinition',
       'SchemaExtension',
+      'DirectiveExtension',
       'ScalarTypeExtension',
       'ObjectTypeExtension',
       'InterfaceTypeExtension',
@@ -122,6 +123,7 @@ describe('AST node predicates', () => {
   it('isTypeSystemExtensionNode', () => {
     expect(filterNodes(isTypeSystemExtensionNode)).to.deep.equal([
       'SchemaExtension',
+      'DirectiveExtension',
       'ScalarTypeExtension',
       'ObjectTypeExtension',
       'InterfaceTypeExtension',

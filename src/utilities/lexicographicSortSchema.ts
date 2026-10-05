@@ -83,6 +83,7 @@ export function lexicographicSortSchema(schema: GraphQLSchema): GraphQLSchema {
       ...config,
       locations: sortBy(config.locations, (x) => x),
       args: sortArgs(config.args),
+      extensionASTNodes: config.extensionASTNodes,
     });
   }
 

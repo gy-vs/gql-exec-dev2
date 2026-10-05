@@ -3,7 +3,9 @@ import { describe, it } from 'mocha';
 
 import { expectJSON } from '../../__testUtils__/expectJSON';
 
-import { buildSchema } from '../../utilities/buildASTSchema';
+import { parse } from '../../language/parser';
+
+import { buildASTSchema, buildSchema } from '../../utilities/buildASTSchema';
 import { getIntrospectionQuery } from '../../utilities/getIntrospectionQuery';
 
 import { graphqlSync } from '../../graphql';
@@ -903,6 +905,11 @@ describe('Introspection', () => {
                   isDeprecated: false,
                   deprecationReason: null,
                 },
+                {
+                  name: 'DIRECTIVE_DEFINITION',
+                  isDeprecated: false,
+                  deprecationReason: null,
+                },
               ],
               possibleTypes: null,
             },
@@ -1647,5 +1654,41 @@ describe('Introspection', () => {
       typeResolver,
     });
     expect(result).to.not.have.property('errors');
+  });
+
+  it('exposes DIRECTIVE_DEFINITION through __DirectiveLocation', () => {
+    const schema = buildASTSchema(
+      parse(
+        `
+          type Query {
+            foo: String
+          }
+
+          directive @owner(team: String!) on DIRECTIVE_DEFINITION
+        `,
+        { experimentalDirectivesOnDirectiveDefinitions: true },
+      ),
+    );
+
+    const result = graphqlSync({
+      schema,
+      source: `
+        {
+          __type(name: "__DirectiveLocation") {
+            enumValues {
+              name
+            }
+          }
+        }
+      `,
+    });
+
+    expect(result).to.not.have.property('errors');
+    const names = (
+      result.data as {
+        __type: { enumValues: ReadonlyArray<{ name: string }> };
+      }
+    ).__type.enumValues.map((value) => value.name);
+    expect(names).to.include('DIRECTIVE_DEFINITION');
   });
 });
